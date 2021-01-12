@@ -1,4 +1,4 @@
-# NativeLength
+# length++
 length to .exe
 
 do `length++ --help` to see all the settings;
