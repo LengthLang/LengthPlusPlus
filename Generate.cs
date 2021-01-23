@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 [assembly:AssemblyVersionAttribute("1.0.0")]
 
@@ -23,14 +24,23 @@ namespace Nezbednik {
             return foldname;
         }
 
+        private static bool IsWin(string x = "x") {
+            return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        }
+
+        private static void IfWinPrint() {
+            if (!IsWin()) Console.WriteLine();
+        }
+
         public static void Main(string[] args) {
-            string stamp = "length++.exe";
-            List<string> presets = new List<string>{"vs2010"};
+            string stamp = Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly().Location);
+            if (IsWin()) stamp += ".exe";
+            List<string> presets = new List<string>{"vs2010", "g++"};
 
             // modify this!
-            string version = "1.0.0";
-            string buildver = "";
-            string buildauthor = "";
+            string version = "1.0.1";
+            string buildver = "x86_64-linux";
+            string buildauthor = "nezbednik";
 
             if (Array.IndexOf(args, "--help") != -1) {
                 Console.WriteLine("Usage: " + stamp + " [options] file...");
@@ -39,12 +49,14 @@ namespace Nezbednik {
                 Console.WriteLine(HelpPrint("--version", "Display compiler version information."));
                 Console.WriteLine(HelpPrint("-o <file>", "Place the output into <file>."));
                 Console.WriteLine(HelpPrint("--preset <preset>", "Values: " + String.Join(", ", presets.ToArray())));
+                IfWinPrint();
                 Environment.Exit(0);
             }
 
             if (Array.IndexOf(args, "--version") != -1) {
                 Console.WriteLine(Path.GetFileNameWithoutExtension(stamp) + " (" + buildver + ", Built by " + buildauthor + ") " + version);
                 Console.WriteLine();
+                IfWinPrint();
                 Environment.Exit(0);
             }
 
@@ -107,6 +119,7 @@ namespace Nezbednik {
                 Console.ResetColor();
                 Console.WriteLine(specializedError + " input files");
                 Console.Write("compilation terminated.");
+                IfWinPrint();
                 Environment.Exit(1);
             }
 
@@ -246,17 +259,22 @@ namespace Nezbednik {
             fileContent += "        }\n";
             fileContent += "    }\n";
             fileContent += "    \n";
+            if (!IsWin()) fileContent += "    cout << endl;\n";
             fileContent += "    return 0;\n";
             fileContent += "}";
+            if (!IsWin()) fileContent += "\n";
 
             bool isCompiling = false;
             if (preset.Length > 0) isCompiling = true;
-            if (customOutFile.Length <= 0) customOutFile = Path.GetFileNameWithoutExtension(filename) + (isCompiling ? ".exe" : ".cpp");
+            if (customOutFile.Length <= 0) customOutFile = Path.GetFileNameWithoutExtension(filename) + (isCompiling ? (IsWin() ? ".exe" : "") : ".cpp");
             string tempdir = GetTempDir();
             string filenameout = Path.Combine(tempdir, "file.cpp");
             if (!isCompiling) filenameout = customOutFile;
             File.WriteAllText(filenameout, fileContent);
-            if (!isCompiling) Environment.Exit(0);
+            if (!isCompiling) {
+                IfWinPrint();
+                Environment.Exit(0);
+            }
             if (preset == "vs2010") {
                 string vs2path = Path.Combine("C:\\", "Program Files (x86)", "Microsoft Visual Studio 10.0");
                 string sdkpath = Path.Combine("C:\\", "Program Files (x86)", "Microsoft SDKs", "Windows", "v7.0A");
@@ -271,6 +289,7 @@ namespace Nezbednik {
                 else if (!Directory.Exists(sdkpath) || !Directory.Exists(sdkinclude) || !Directory.Exists(sdklibfold)) errortext = "Windows SDK";
                 if (errortext.Length > 0) {
                     Console.WriteLine(errortext + " is not installed!");
+                    IfWinPrint();
                     Environment.Exit(1);
                 }
                 ProcessStartInfo info = new ProcessStartInfo();
@@ -285,10 +304,28 @@ namespace Nezbednik {
                 info.Arguments = "/EHsc /Fo\"" + tempdir + "\" /Fe\"" + (Path.IsPathRooted(customOutFile) ? customOutFile : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, customOutFile)) + "\" \"" + filenameout + "\" /MT";
                 Process.Start(info).WaitForExit();
                 Directory.Delete(tempdir, true);
+                IfWinPrint();
                 Environment.Exit(0);
             }
-            else {
-                //TODO custom
+            else if (preset == "g++") {
+                try {
+                    ProcessStartInfo info = new ProcessStartInfo();
+                    info.UseShellExecute = false;
+                    info.RedirectStandardInput = true;
+                    info.RedirectStandardError = true;
+                    info.RedirectStandardOutput = true;
+                    info.FileName = "g++";
+                    info.Arguments = "-o \"" + (Path.IsPathRooted(customOutFile) ? customOutFile : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, customOutFile)) + "\" \"" + filenameout + "\"";
+                    Process.Start(info).WaitForExit();
+                    Directory.Delete(tempdir, true);
+                    IfWinPrint();
+                    Environment.Exit(0);
+                }
+                catch(Exception e) {
+                    IsWin(e.Message);
+                    IfWinPrint();
+                    Environment.Exit(1);
+                }
             }
         }
     }
