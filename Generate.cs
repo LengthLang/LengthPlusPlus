@@ -39,8 +39,8 @@ namespace Nezbednik {
 
             // modify this!
             string version = "1.0.1";
-            string buildver = "x86_64-linux";
-            string buildauthor = "nezbednik";
+            string buildver = "";
+            string buildauthor = "";
 
             if (Array.IndexOf(args, "--help") != -1) {
                 Console.WriteLine("Usage: " + stamp + " [options] file...");
